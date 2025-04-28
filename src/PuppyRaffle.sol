@@ -78,6 +78,7 @@ contract PuppyRaffle is ERC721, Ownable {
     /// @param newPlayers the list of players to enter the raffle
     function enterRaffle(address[] memory newPlayers) public payable {
         require(msg.value == entranceFee * newPlayers.length, "PuppyRaffle: Must send enough to enter raffle");
+        // @audit - value should be equal or greater than entranceFee
         for (uint256 i = 0; i < newPlayers.length; i++) {
             players.push(newPlayers[i]);
         }
@@ -85,6 +86,8 @@ contract PuppyRaffle is ERC721, Ownable {
         // Check for duplicates
         for (uint256 i = 0; i < players.length - 1; i++) {
             for (uint256 j = i + 1; j < players.length; j++) {
+                // @audit - this line could be added to the previous for loop to avoid duplicate players (gass efficiency)
+                // @audit - here it is reverting but not calling out what address is duplicate and does not avoid storing duplicate players
                 require(players[i] != players[j], "PuppyRaffle: Duplicate player");
             }
         }
@@ -99,7 +102,7 @@ contract PuppyRaffle is ERC721, Ownable {
         require(playerAddress != address(0), "PuppyRaffle: Player already refunded, or is not active");
 
         payable(msg.sender).sendValue(entranceFee);
-
+        // @audit - exposure to reentrancy
         players[playerIndex] = address(0);
         emit RaffleRefunded(playerAddress);
     }
@@ -129,8 +132,10 @@ contract PuppyRaffle is ERC721, Ownable {
             uint256(keccak256(abi.encodePacked(msg.sender, block.timestamp, block.difficulty))) % players.length;
         address winner = players[winnerIndex];
         uint256 totalAmountCollected = players.length * entranceFee;
+        // @audit - what if totalAmountCollected is any number that is not divisible by 100?
         uint256 prizePool = (totalAmountCollected * 80) / 100;
         uint256 fee = (totalAmountCollected * 20) / 100;
+        // @audit - totalFees is not checked for overflow
         totalFees = totalFees + uint64(fee);
 
         uint256 tokenId = totalSupply();
@@ -155,6 +160,7 @@ contract PuppyRaffle is ERC721, Ownable {
 
     /// @notice this function will withdraw the fees to the feeAddress
     function withdrawFees() external {
+        // @audit - what if totalFees is 0?
         require(address(this).balance == uint256(totalFees), "PuppyRaffle: There are currently players active!");
         uint256 feesToWithdraw = totalFees;
         totalFees = 0;
