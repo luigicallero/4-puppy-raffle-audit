@@ -4,7 +4,7 @@
 The `enterRaffle()` function contains a nested loop for duplicate player checking that has O(n²) time complexity. The function first adds all new players to the array and then checks for duplicates by comparing each player against every other player in the array. This implementation causes gas costs to grow quadratically with the number of players.
 
 Root cause in `PuppyRaffle.sol`:
-```solidity
+```javascript
 function enterRaffle(address[] memory newPlayers) public payable {
     require(msg.value == entranceFee * newPlayers.length, "PuppyRaffle: Must send enough to enter raffle");
     // First loop - O(n)
@@ -30,7 +30,10 @@ function enterRaffle(address[] memory newPlayers) public payable {
 - Legitimate users could be priced out of participating in the raffle
 
 **Proof of Concept:**  
-```solidity
+<details>
+<summary>POC</summary>
+
+```javascript
 function test_DoSAttack() public {
     vm.txGasPrice(1);
     uint256 numPlayers = 100;
@@ -55,9 +58,10 @@ function test_DoSAttack() public {
     console.log("Gas used with the next 200: ", (gasBefore2 - gasAfter2) * tx.gasprice);
 }
 ```
+</details>
 
 Test Results:
-```
+```javascript
 [PASS] test_DoSAttack() (gas: 25537704)
 Logs:
   Gas before 1073702769
@@ -72,9 +76,11 @@ The test demonstrates:
 - ~2.92x increase in gas cost for the same number of players
 - Clear evidence of quadratic growth in gas costs
 
-**Recommended Mitigation:**  
-1. Replace the nested loop with a more efficient duplicate checking mechanism using a mapping:
-```solidity
+**Recommended Mitigation:** 
+1. Consider avoiding the check for duplicates. A user can create several wallets and then duplicates would not avoid the same person to participate several times.
+   
+2. Consider using mapping to replace the nested loop with a more efficient duplicate checking mechanism:
+```javascript
 contract PuppyRaffle {
     mapping(address => bool) public isPlayer;
     
