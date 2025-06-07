@@ -279,7 +279,8 @@ contract PuppyRaffleTest is Test {
         vm.warp(block.timestamp + duration + 1);
         vm.roll(block.number + 1);
         puppyRaffle.selectWinner();
-        console.log("total fee after 4 players:", uint256(puppyRaffle.totalFees()));
+        uint256 totalFeesBefore = uint256(puppyRaffle.totalFees());
+        console.log("total fee after 4 players:", totalFeesBefore);
 
         //uint256 playersNeeded = (type(uint64).max / (entranceFee * 20 / 100)) + 100; // Add more players to ensure overflow
         uint64 playersNeeded = 89;
@@ -298,14 +299,14 @@ contract PuppyRaffleTest is Test {
         puppyRaffle.selectWinner();
         
         // Check if totalFees overflowed
-        uint64 totalFeesAfter = puppyRaffle.totalFees();
+        uint256 totalFeesAfter = uint256(puppyRaffle.totalFees());
         uint256 expectedFees = (entranceFee * playersNeeded * 20) / 100;
-        console.log("Total fees after overflow:", uint256(totalFeesAfter));
+        console.log("Total fees after overflow:", totalFeesAfter);
         console.log("Expected fees :", expectedFees);
         console.log("Overflow value:", uint256(type(uint64).max));
         
         // If the value is less than what we calculated, it means it overflowed
-        require(totalFeesAfter < expectedFees, "Overflow did not occur");
+        assert(totalFeesAfter < totalFeesBefore);
     }
 }
 

@@ -139,6 +139,11 @@ contract PuppyRaffle is ERC721, Ownable {
         uint256 prizePool = (totalAmountCollected * 80) / 100;
         uint256 fee = (totalAmountCollected * 20) / 100;
         // @audit - totalFees is not checked for overflow
+        // fixes: use a newer version of solidity or higher uint type
+        // @audit - casting of fee into uint64 will cause overflow if fee is greater than 2^64
+        // 18.446744073709551615 - uint64 max
+        // 20.000000000000000000 - fees equals 20ETH
+        // 1.553255926290448384 - if I cast 20ETH of fees into a uint64, it will be truncated to 1.5ETH
         totalFees = totalFees + uint64(fee);
 
         uint256 tokenId = totalSupply();
