@@ -308,6 +308,15 @@ contract PuppyRaffleTest is Test {
         // If the value is less than what we calculated, it means it overflowed
         assert(totalFeesAfter < totalFeesBefore);
     }
+
+    function testCantSentMoneyToRaffle() public {
+        address senderTest = makeAddr("senderTest");
+        vm.deal(senderTest, 1 ether);
+        vm.expectRevert();
+        vm.prank(senderTest);
+        (bool success, ) = payable(address(puppyRaffle)).call{value: 1 ether}("");
+        assert(success);
+    }
 }
 
 contract ReentrancyAttack {        
