@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.6;
-// @audit-info - use of floating pragma is bad!
-// @audit-info - why are you using 0.7.x???
+// report-written - use of floating pragma is bad!
+// report-written - why are you using 0.7.x???
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
@@ -22,7 +22,7 @@ contract PuppyRaffle is ERC721, Ownable {
     uint256 public immutable entranceFee;
 
     address[] public players;
-    // @audit-info - this should be immutable
+    // report-written - this should be immutable
     uint256 public raffleDuration;
     uint256 public raffleStartTime;
     address public previousWinner;
@@ -37,7 +37,7 @@ contract PuppyRaffle is ERC721, Ownable {
     mapping(uint256 => string) public rarityToName;
 
     // Stats for the common puppy (pug)
-    // @audit-gas - this is a constant variable, it should be declared as constant
+    // report-written - these 3 URI variables are constant variables, they should be declared as constant
     string private commonImageUri = "ipfs://QmSsYRx3LpDAb1GZQm7zZ1AuHZjfbPkD6J7s9r41xu1mf8";
     uint256 public constant COMMON_RARITY = 70;
     string private constant COMMON = "common";
@@ -62,7 +62,7 @@ contract PuppyRaffle is ERC721, Ownable {
     /// @param _raffleDuration the duration in seconds of the raffle
     constructor(uint256 _entranceFee, address _feeAddress, uint256 _raffleDuration) ERC721("Puppy Raffle", "PR") {
         entranceFee = _entranceFee;
-        // @audit-info - check for zero address (info unless it could brake something later on)
+        // report-written - check for zero address (info unless it could brake something later on)
         // input validation
         feeAddress = _feeAddress;
         raffleDuration = _raffleDuration;
@@ -90,7 +90,7 @@ contract PuppyRaffle is ERC721, Ownable {
         }
 
         // Check for duplicates
-        // @audit-info - players.length is reading from storage, it should be cached to save gas
+        // report-written - players.length is reading from storage, it should be cached to save gas
         // uint256 playerLength = players.length;
         for (uint256 i = 0; i < players.length - 1; i++) {
             for (uint256 j = i + 1; j < players.length; j++) {
@@ -107,14 +107,15 @@ contract PuppyRaffle is ERC721, Ownable {
     /// @dev This function will allow there to be blank spots in the array
     // @audit-gas - marked public but is not used internally, consider marking it as external
     function refund(uint256 playerIndex) public {
+        // report-skipped - MEV
         address playerAddress = players[playerIndex];
         require(playerAddress == msg.sender, "PuppyRaffle: Only the player can refund");
         require(playerAddress != address(0), "PuppyRaffle: Player already refunded, or is not active");
 
         payable(msg.sender).sendValue(entranceFee);
-        // @audit - exposure to reentrancy
+        // written-report - reentrancy
         players[playerIndex] = address(0);
-        // @audit-low - manipulation of frontend
+        // written-report - manipulation of frontend
         // if an event can be manipulated
         // an event is missing
         // an event is wrong it should be at least a low finding
