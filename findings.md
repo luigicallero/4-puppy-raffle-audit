@@ -141,6 +141,18 @@ Everytime you call `player.length` you read from storage, as opposed to memory w
             }
         }
 ```
+### [G-3] Function only used out of contract should be External
+
+In Solidity, the difference between public and external visibility for functions lies in how they handle parameters: public functions create a copy of array parameters in memory while external functions can read array parameters directly from calldata
+
+To avoid the unnecessary memory copy of the `PuppyRaffle::newPlayers` array, change visibility of the function `PuppyRaffle::enterRaffle` to external instead of public:
+
+```diff
+-   function enterRaffle(address[] memory newPlayers) public payable {
++   function enterRaffle(address[] calldata newPlayers) external payable {
+```
+
+Similar situation with the function `PuppyRaffle::refund` but less gas saving since it is a uint256 not an array
 
 
 ### [I-1] Unspecific Solidity Pragma
@@ -173,8 +185,21 @@ Check for `address(0)` when assigning values to address state variables.
 </details>
 
 
+### [I-4] EntranceFee should be greater than zero
 
+If `PuppyRaffle:_entranceFee` is zero it could impact the finance core of the application since everyone could enter for free. This error requires admin error when deploying the contract, that is why it is only considered Informational.
 
+- Found in src/PuppyRaffle.sol [Line: 63](src/PuppyRaffle.sol#L63)
+
+**Recommendation**:
+Add input validation for the constructor variables:
+
+```diff
+    constructor(uint256 _entranceFee, address _feeAddress, uint256 _raffleDuration) ERC721("Puppy Raffle", "PR") {
++       require(_entranceFee > 0, "_entranceFee should be greater than zero");
+        entranceFee = _entranceFee;
+
+```
 
 ### [S-#] TITLE (Root + Impact)
 **Description**

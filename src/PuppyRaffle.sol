@@ -62,6 +62,7 @@ contract PuppyRaffle is ERC721, Ownable {
     /// @param _raffleDuration the duration in seconds of the raffle
     constructor(uint256 _entranceFee, address _feeAddress, uint256 _raffleDuration) ERC721("Puppy Raffle", "PR") {
         entranceFee = _entranceFee;
+        // written-report - entranceFee should be greater than 0
         // report-written - check for zero address (info unless it could brake something later on)
         // input validation
         feeAddress = _feeAddress;
@@ -81,9 +82,8 @@ contract PuppyRaffle is ERC721, Ownable {
     /// @notice they have to pay the entrance fee * the number of players
     /// @notice duplicate entrants are not allowed
     /// @param newPlayers the list of players to enter the raffle
-    // @audit-gas - marked public but is not used internally, consider marking it as external
+    // written-report - marked public but is not used internally, consider marking it as external
     function enterRaffle(address[] memory newPlayers) public payable {
-        // @audit - value should be equal or greater than entranceFee
         require(msg.value == entranceFee * newPlayers.length, "PuppyRaffle: Must send enough to enter raffle");
         for (uint256 i = 0; i < newPlayers.length; i++) {
             players.push(newPlayers[i]);
@@ -91,11 +91,8 @@ contract PuppyRaffle is ERC721, Ownable {
 
         // Check for duplicates
         // report-written - players.length is reading from storage, it should be cached to save gas
-        // uint256 playerLength = players.length;
         for (uint256 i = 0; i < players.length - 1; i++) {
             for (uint256 j = i + 1; j < players.length; j++) {
-                // @audit - this line could be added to the previous for loop to avoid duplicate players (gass efficiency)
-                // @audit - here it is reverting but not calling out what address is duplicate and does not avoid storing duplicate players
                 require(players[i] != players[j], "PuppyRaffle: Duplicate player");
             }
         }
@@ -105,9 +102,9 @@ contract PuppyRaffle is ERC721, Ownable {
 
     /// @param playerIndex the index of the player to refund. You can find it externally by calling `getActivePlayerIndex`
     /// @dev This function will allow there to be blank spots in the array
-    // @audit-gas - marked public but is not used internally, consider marking it as external
+    // written-report - marked public but is not used internally, consider marking it as external
     function refund(uint256 playerIndex) public {
-        // report-skipped - MEV
+        // written-skipped - MEV
         address playerAddress = players[playerIndex];
         require(playerAddress == msg.sender, "PuppyRaffle: Only the player can refund");
         require(playerAddress != address(0), "PuppyRaffle: Player already refunded, or is not active");
