@@ -115,6 +115,54 @@ contract ReentrancyAttack {
 -       emit RaffleRefunded(playerAddress);
     }
 ```
+### [H-2] Weak Randomness in `PuppyRaffle:selectWinner` allows users to predict or influence the winner and influence or predict the winning puppy.
+
+**Description:** Hashing `msg.sender`,`block.timestamp`, and `block.dificulty` together creates a predictable number. A predictable number is not a good random number. Malicious users can manipulate these variables or know them ahead of time to the winner of the raffle themselves.
+
+*Note:* This additionally means users can front-run this function and call `refund` if they see they are not the winner.
+
+**Impact:** Any user can influence the winner of the raffle, winning the money and selecting the `rarest` puppy. Making the entire raffle worthless if it becomes a gas war as to who wins the raffle.
+
+**Proof of Concept:** 
+
+1. Validators can know ahead of time the `block.timestamp`, and `block.dificulty` and use that to predict when to participate. See the [solidity blog on prevrandao](https://soliditydeveloper.com/prevrandao). `block.dificulty`was recently replaced with prevrandao.
+2. User can mine/manipulate their `msg.sender` value to result in their address being used to generate the winner.
+3. Users can revert their `selectWinner` transaction if they don't like the winner or the resulting puppy. 
+
+Using on-chain values as a randomness seed is a [well-documented attack vector](https://betterprogramming.pub/how-to-generate-truly-random-numbers-in-solidity-and-blockchain-9ced6472dbdf) in the blockchain space.
+
+**Recommended mitigation:**
+
+# Low
+
+### [L-1] `PuppyRaffle::getActivePlayerIndex` returns 0 for non-existent players and for players at index 0, causing players at index 0 to think incorrectly they have not entered the raffle
+
+**Description:** If a player is in the `PuppyRaffle::players`array at index 0, this will return 0, but according to the natspec, it will also return 0 if the player is not in the array.
+
+```javascript
+    /// @return the index of the player in the array, if they are not active, it returns 0
+    function getActivePlayerIndex(address player) external view returns (uint256) {
+        for (uint256 i = 0; i < players.length; i++) {
+            if (players[i] == player) {
+                return i;
+            }
+        }
+        return 0;
+    }
+```
+
+**Impact:** A player at index 0 may incorrectly think they have not entered the raffle, and attempt to enter the raffle again, wasting gas.
+
+**Proof of Concept:**
+
+1. User enters the raffle, they are the first entrant
+2. `PuppyRaffle::getActivePlayerIndex` returns 0
+3. User thinks they have not enter the raffle correclty due to the function documentation
+
+**Recommended mitigation:** The easiest recommendations is to revert if the player is not in the array instead of returning 0.
+
+You could also reserve the 0th array position for any competition, but a better solution might be to return an `int256` where the function returns -1 if the player is not active. 
+
 
 # Gas
 ### [G-1] Unchanged variables should be declared constant or immutable.
@@ -201,16 +249,18 @@ Add input validation for the constructor variables:
 
 ```
 
-### [S-#] TITLE (Root + Impact)
-**Description**
+### [I-5] `PuppyRaffle::selectWinner` does not follow CEI, which is not  best practice
 
-**Impact**
+It is best to keep code clean and follow CEI (Check, Effects, Interactions)
 
-**Proof of Concepts**
+```diff
+-       (bool success,) = winner.call{value: prizePool}("");
+-       require(success, "PuppyRaffle: Failed to send prize pool to winner");
+        _safeMint(winner, tokenId);
++       (bool success,) = winner.call{value: prizePool}("");
++       require(success, "PuppyRaffle: Failed to send prize pool to winner");
 
-**Recommended mitigation**
-
-
+```
 
 ### [S-1] Quadratic Complexity in enterRaffle() Function Enables DoS Attack
 

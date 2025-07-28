@@ -128,7 +128,7 @@ contract PuppyRaffle is ERC721, Ownable {
                 return i;
             }
         }
-        // @audit if the player is at index 0, it'll return 0 and a player might think they are not active
+        // written-report - if the player is at index 0, it'll return 0 and a player might think they are not active
         return 0;
     }
 
@@ -139,11 +139,11 @@ contract PuppyRaffle is ERC721, Ownable {
     /// @dev we reset the active players array after the winner is selected
     /// @dev we send 80% of the funds to the winner, the other 20% goes to the feeAddress
     function selectWinner() external {
-        // @audit-info - recommend to follow CEI
+        // writ - recommend to follow CEI
         require(block.timestamp >= raffleStartTime + raffleDuration, "PuppyRaffle: Raffle not over");
         require(players.length >= 4, "PuppyRaffle: Need at least 4 players");
         
-        // @audit - randomnes
+        // @audit - randomness
         // fixes: Chainlink VRF, or a random number generator from a trusted source
         uint256 winnerIndex = 
             uint256(keccak256(abi.encodePacked(msg.sender, block.timestamp, block.difficulty))) % players.length;
@@ -184,7 +184,7 @@ contract PuppyRaffle is ERC721, Ownable {
         raffleStartTime = block.timestamp;
         previousWinner = winner;
 
-        // @audit - possible Reentrancy attack
+        // written-report - possible Reentrancy attack
         (bool success,) = winner.call{value: prizePool}("");
         require(success, "PuppyRaffle: Failed to send prize pool to winner");
         _safeMint(winner, tokenId);
