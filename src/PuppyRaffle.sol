@@ -143,24 +143,24 @@ contract PuppyRaffle is ERC721, Ownable {
         require(block.timestamp >= raffleStartTime + raffleDuration, "PuppyRaffle: Raffle not over");
         require(players.length >= 4, "PuppyRaffle: Need at least 4 players");
         
-        // @audit - randomness
+        // written-report - randomness
         // fixes: Chainlink VRF, or a random number generator from a trusted source
         uint256 winnerIndex = 
             uint256(keccak256(abi.encodePacked(msg.sender, block.timestamp, block.difficulty))) % players.length;
         address winner = players[winnerIndex];
-        // @audit-info why not just do  address(this).balance?
+        // report-skipped -info why not just do  address(this).balance?
         uint256 totalAmountCollected = players.length * entranceFee;
-        // @audit - what if totalAmountCollected is any number that is not divisible by 100?
-        // @audit-info - Magic Numbers found:
+        // skipped-report - what if totalAmountCollected is any number that is not divisible by 100?
+        // written-report - Magic Numbers found:
         // uint256 public constant PRIZE_POOL_PERCENTAGE = 80;
         // uint256 public constant FEE_PERCENTAGE = 20;
         // uint256 public constant POOL_PRECISION = 100; 
         // Exceptions as magic numbers: 0, 1
         uint256 prizePool = (totalAmountCollected * 80) / 100;
         uint256 fee = (totalAmountCollected * 20) / 100;
-        // @audit - totalFees is not checked for overflow
+        // written-report - overflow: totalFees is not checked for overflow
         // fixes: use a newer version of solidity or higher uint type
-        // @audit - casting of fee into uint64 will cause overflow if fee is greater than 2^64
+        // written-report - unsafe cast: casting of fee into uint64 will cause overflow if fee is greater than 2^64
         // 18.446744073709551615 - uint64 max
         // 20.000000000000000000 - fees equals 20ETH
         // 1.553255926290448384 - if I cast 20ETH of fees into a uint64, it will be truncated to 1.5ETH
