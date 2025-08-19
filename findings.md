@@ -1,4 +1,5 @@
 # High Risk Findings
+
 ### [H-1] Reentrancy attack in `PuppyRaffle::refund` allows entrant to drain all funds
 **Description:** The `PuppyRaffle::refund` function does not follow CEI (Checks, Effects, Interactions) and as a result, enables participants to drain the contract balance.
 
@@ -116,7 +117,8 @@ contract ReentrancyAttack {
 -       emit RaffleRefunded(playerAddress);
     }
 ```
-### [H-2] Weak Randomness in `PuppyRaffle:selectWinner` allows users to predict or influence the winner and influence or predict the winning puppy.
+
+### [H-2] Weak Randomness in `PuppyRaffle::selectWinner` allows users to predict or influence the winner and influence or predict the winning puppy.
 
 **Description:** Hashing `msg.sender`,`block.timestamp`, and `block.dificulty` together creates a predictable number. A predictable number is not a good random number. Malicious users can manipulate these variables or know them ahead of time to the winner of the raffle themselves.
 
@@ -133,7 +135,8 @@ contract ReentrancyAttack {
 Using on-chain values as a randomness seed is a [well-documented attack vector](https://betterprogramming.pub/how-to-generate-truly-random-numbers-in-solidity-and-blockchain-9ced6472dbdf) in the blockchain space.
 
 **Recommended mitigation:** consider using a cryptographically provable random number generator such us as Chainlink VRF.
-### [H-3] Integer overflows of `PuppyRaffle:totalFees` loses fees
+
+### [H-3] Integer overflows of `PuppyRaffle::totalFees` loses fees
 **Description:** In solidity version prior to `0.8.0` integers were subject to integer overflows.
 
 ```javascript
@@ -216,7 +219,26 @@ Although you could use `selfdestruct`to send ETH to this contract in order for t
 There are more attack vectors with that final require, so we recommend removing it regardless.
 
 
+### [H-4] Dangerous strict equality checks on contract balances could be manipulated
+
+**Description:** A contract's balance can be forcibly manipulated by another selfdestructing contract. Therefore, it's recommended to use >, <, >= or <= instead of strict equality.
+
+**Impact:** Griefing attack: Fee withdrawals can be permanently disabled with minimal cost (gas + small ETH amount) by using a selfdestruct contract.
+
+**Proof of Concept:**
+1. Balance of the contract is 5 ETH, totalFees = 5 ETH
+2. Attacker selfdestructs 0.1 ETH to contract
+3. Balance now is equal 5.1 ETH while totalFees is 5 ETH
+4. WithdrawFees() will ALWAYS revert from now on
+
+**Recommended mitigation:** Replace strict equality with a greater-than-or-equal check:
+```diff
+-   require(address(this).balance == uint256(totalFees), "PuppyRaffle: There are currently players active!");
++   require(address(this).balance >= uint256(totalFees), "PuppyRaffle: There are currently players active!");
+```
+
 # Medium Risk Findings
+
 ### [M-1] Quadratic Complexity in enterRaffle() Function Enables DoS Attack
 
 **Description:**  
@@ -393,6 +415,26 @@ But the potential gas saved isn't worth it if we have to recast and this bug exi
 +       totalFees = totalFees + fee;
 ```
 
+### [M-3] Smart Contract wallets raffle winners without a `receive` or a `fallback` function will block the start of a new contract
+
+**Description:** The `PuppyRaffle::selectWinner` function is responsible for resetting the lottery. However, if the winner is a smart contract wallet that rejects payment, the lottery would not be able to restart.
+
+Users could easily call the `selectWinner`funtion again and non-wallet entrants could enter, but it could cost a lot due to the duplicate check and a lottery reset could get very challenging.
+
+**Impact:** The `PuppyRaffle::selectWinner` function could revert many times, making a lottery reset difficult.
+
+Also, true winners would not get paid out and someone else could take their money!
+
+**Proof of Concept:**
+
+1. 10 smart contract wallets enter the lottery without a fallback or receive function.
+2. The lottery ends
+3. The `selectWinner`function wouldn't work, even though the lottery is over!
+
+**Recommended mitigation:** There are a few options to mitigate this issue.
+
+1. Do not allow smart contract wallet entrants (not recommended)
+2. Create a mapping of addresses -> payout amounts so winners can pull their funds out themselves with a new `claimPrize` function, putting the owness on the winner to claim their prize. (Recommended)  **Pull over Push**
 
 # Low Risk Findings
 
@@ -450,6 +492,7 @@ Everytime you call `player.length` you read from storage, as opposed to memory w
             }
         }
 ```
+
 ### [G-3] Function only used out of contract should be External
 
 In Solidity, the difference between public and external visibility for functions lies in how they handle parameters: public functions create a copy of array parameters in memory while external functions can read array parameters directly from calldata
@@ -469,8 +512,6 @@ Similar situation with the function `PuppyRaffle::refund` but less gas saving si
 Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`
 
 - Found in src/PuppyRaffle.sol [Line: 2](src/PuppyRaffle.sol#L2)
-
-
 
 ### [I-2] Using an outdated version of Solidity is not recommended.
 

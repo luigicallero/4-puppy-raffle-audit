@@ -169,8 +169,8 @@ contract PuppyRaffle is ERC721, Ownable {
 
         // We use a different RNG calculate from the winnerIndex to determine rarity
 
-        // @audit - this is not a good random number generator
-        // @audit people can revert the TX till they win
+        // written-report - this is not a good random number generator
+        // written-report - people can revert the TX till they win
         uint256 rarity = uint256(keccak256(abi.encodePacked(msg.sender, block.difficulty))) % 100;
         if (rarity <= COMMON_RARITY) {
             tokenIdToRarity[tokenId] = COMMON_RARITY;
@@ -185,6 +185,7 @@ contract PuppyRaffle is ERC721, Ownable {
         previousWinner = winner;
 
         // written-report - possible Reentrancy attack
+        // written-report - the winner wouldn't get the money if their fallback was messed up!
         (bool success,) = winner.call{value: prizePool}("");
         require(success, "PuppyRaffle: Failed to send prize pool to winner");
         _safeMint(winner, tokenId);
@@ -192,8 +193,8 @@ contract PuppyRaffle is ERC721, Ownable {
 
     /// @notice this function will withdraw the fees to the feeAddress
     function withdrawFees() external {
-        // @audit - is it difficult to withdraw fees if there are players active (MEV)
-        // @audit - mishandling ETH because a selfdestruct could force the contract to receive ETH and mess up the balance
+        // skipped - is it difficult to withdraw fees if there are players active (MEV)
+        // written-report - mishandling ETH because a selfdestruct could force the contract to receive ETH and mess up the balance
         require(address(this).balance == uint256(totalFees), "PuppyRaffle: There are currently players active!");
         uint256 feesToWithdraw = totalFees;
         totalFees = 0;
