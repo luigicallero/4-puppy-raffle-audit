@@ -1,3 +1,134 @@
+---
+title: PuppyRaffle Audit Report
+author: IT Mandalorians
+date: August 23, 2025
+header-includes:
+  - \usepackage{titling}
+  - \usepackage{graphicx}
+---
+
+\begin{titlepage}
+    \centering
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.5\textwidth]{logo.pdf} 
+    \end{figure}
+    \vspace*{2cm}
+    {\Huge\bfseries PuppyRaffle Audit Report\par}
+    \vspace{1cm}
+    {\Large Version 1.0\par}
+    \vspace{2cm}
+    {\Large\itshape IT Mandalorians\par}
+    \vfill
+    {\large \today\par}
+\end{titlepage}
+
+\maketitle
+
+<!-- Your report starts here! -->
+
+Prepared by: [IT Mandalorians](https://sites.google.com/view/itmandalorians/inicio)
+Lead Auditors: 
+- Luisca
+
+# Table of Contents
+- [Table of Contents](#table-of-contents)
+- [Protocol Summary](#protocol-summary)
+- [Disclaimer](#disclaimer)
+- [Risk Classification](#risk-classification)
+- [Audit Details](#audit-details)
+  - [Scope](#scope)
+  - [Roles](#roles)
+- [Executive Summary](#executive-summary)
+  - [Issues found](#issues-found)
+- [Findings](#findings)
+  - [High](#high)
+    - [\[H-1\] Reentrancy attack in `PuppyRaffle::refund` allows entrant to drain all funds](#h-1-reentrancy-attack-in-puppyrafflerefund-allows-entrant-to-drain-all-funds)
+    - [\[H-2\] Weak Randomness in `PuppyRaffle::selectWinner` allows users to predict or influence the winner and influence or predict the winning puppy.](#h-2-weak-randomness-in-puppyraffleselectwinner-allows-users-to-predict-or-influence-the-winner-and-influence-or-predict-the-winning-puppy)
+    - [\[H-3\] Integer overflows of `PuppyRaffle::totalFees` loses fees](#h-3-integer-overflows-of-puppyraffletotalfees-loses-fees)
+    - [\[H-4\] Dangerous strict equality checks on contract balances could be manipulated](#h-4-dangerous-strict-equality-checks-on-contract-balances-could-be-manipulated)
+  - [Medium](#medium)
+    - [\[M-1\] Quadratic Complexity in enterRaffle() Function Enables DoS Attack](#m-1-quadratic-complexity-in-enterraffle-function-enables-dos-attack)
+    - [\[M-2\] Unsafe cast of `PuppyRaffle::fee` loses fees](#m-2-unsafe-cast-of-puppyrafflefee-loses-fees)
+    - [\[M-3\] Smart Contract wallets raffle winners without a `receive` or a `fallback` function will block the start of a new contract](#m-3-smart-contract-wallets-raffle-winners-without-a-receive-or-a-fallback-function-will-block-the-start-of-a-new-contract)
+  - [Low](#low)
+    - [\[L-1\] `PuppyRaffle::getActivePlayerIndex` returns 0 for non-existent players and for players at index 0, causing players at index 0 to think incorrectly they have not entered the raffle](#l-1-puppyrafflegetactiveplayerindex-returns-0-for-non-existent-players-and-for-players-at-index-0-causing-players-at-index-0-to-think-incorrectly-they-have-not-entered-the-raffle)
+  - [Gas](#gas)
+    - [\[G-1\] Unchanged variables should be declared constant or immutable.](#g-1-unchanged-variables-should-be-declared-constant-or-immutable)
+    - [\[G-2\] Storage variables in a loop should be cached](#g-2-storage-variables-in-a-loop-should-be-cached)
+    - [\[G-3\] Function only used out of contract should be External](#g-3-function-only-used-out-of-contract-should-be-external)
+  - [Informational/Non Critical](#informationalnon-critical)
+    - [\[I-1\] Unspecific Solidity Pragma](#i-1-unspecific-solidity-pragma)
+    - [\[I-2\] Using an outdated version of Solidity is not recommended.](#i-2-using-an-outdated-version-of-solidity-is-not-recommended)
+    - [\[I-3\] Address State Variable Set Without Checks](#i-3-address-state-variable-set-without-checks)
+    - [\[I-4\] EntranceFee should be greater than zero](#i-4-entrancefee-should-be-greater-than-zero)
+    - [\[I-5\] `PuppyRaffle::selectWinner` does not follow CEI, which is not  best practice](#i-5-puppyraffleselectwinner-does-not-follow-cei-which-is-not--best-practice)
+    - [\[I-6\] Use of "magic" numbers is discouraged](#i-6-use-of-magic-numbers-is-discouraged)
+    - [\[I-7\] State variables changes should have an event](#i-7-state-variables-changes-should-have-an-event)
+    - [\[I-8\] Dead Code. `PuppyRaffle::_isActivePlayer` is never used and should be removed](#i-8-dead-code-puppyraffle_isactiveplayer-is-never-used-and-should-be-removed)
+
+# Protocol Summary
+
+This project is to enter a raffle to win a cute dog NFT. The protocol should do the following:
+
+1. Call the `enterRaffle` function with the following parameters:
+   1. `address[] participants`: A list of addresses that enter. You can use this to enter yourself multiple times, or yourself and a group of your friends.
+2. Duplicate addresses are not allowed
+3. Users are allowed to get a refund of their ticket & `value` if they call the `refund` function
+4. Every X seconds, the raffle will be able to draw a winner and be minted a random puppy
+5. The owner of the protocol will set a feeAddress to take a cut of the `value`, and the rest of the funds will be sent to the winner of the puppy.
+
+# Disclaimer
+
+The IT Mandalorians team makes all effort to find as many vulnerabilities in the code in the given time period, but holds no responsibilities for the findings provided in this document. A security audit by the team is not an endorsement of the underlying business or product. The audit was time-boxed and the review of the code was solely on the security aspects of the Solidity implementation of the contracts.
+
+# Risk Classification
+
+|            |        | Impact |        |     |
+| ---------- | ------ | ------ | ------ | --- |
+|            |        | High   | Medium | Low |
+|            | High   | H      | H/M    | M   |
+| Likelihood | Medium | H/M    | M      | M/L |
+|            | Low    | M      | M/L    | L   |
+
+We use the [CodeHawks](https://docs.codehawks.com/hawks-auditors/how-to-evaluate-a-finding-severity) severity matrix to determine severity. See the documentation for more details.
+
+# Audit Details
+- Commit Hash: 2a47715b30cf11ca82db148704e67652ad679cd8
+
+## Scope
+
+```
+./src/
+#-- PuppyRaffle.sol
+```
+
+## Roles
+
+Owner - Deployer of the protocol, has the power to change the wallet address to which fees are sent through the `changeFeeAddress` function.
+Player - Participant of the raffle, has the power to enter the raffle with the `enterRaffle` function and refund value through `refund` function.
+
+# Executive Summary
+
+The PuppyRaffle audit revealed 7 critical vulnerabilities threatening protocol security and user funds.
+High-severity issues include: reentrancy attack enabling complete fund drainage, weak randomness allowing winner manipulation, integer overflow causing permanent fee loss, and selfdestruct vulnerability permanently locking withdrawals.
+Medium-severity issues: DoS attacks via quadratic complexity, unsafe fee casting causing fund loss, and smart contract winner blocking.
+Impact: Complete loss of user funds, protocol dysfunction, and compromised raffle integrity. The reentrancy and randomness vulnerabilities are particularly severe, allowing malicious actors to drain contracts and control outcomes.
+Recommendation: Immediate remediation required before deployment. Implement reentrancy guards, Chainlink VRF, and proper validation checks.
+
+## Issues found
+
+| Severity | Number of issues found | 
+| -------- | -----------------------| 
+| High     | 4                      |
+| Medium   | 3                      | 
+| Low      | 1                      | 
+| Gas      | 3                      | 
+| Info     | 8                      | 
+| Total    | 19                     | 
+
+# Findings
+
 ## High
 
 ### [H-1] Reentrancy attack in `PuppyRaffle::refund` allows entrant to drain all funds
@@ -242,7 +373,7 @@ There are more attack vectors with that final require, so we recommend removing 
 ### [M-1] Quadratic Complexity in enterRaffle() Function Enables DoS Attack
 
 **Description:**  
-The `enterRaffle()` function contains a nested loop for duplicate player checking that has O(n²) time complexity. The function first adds all new players to the array and then checks for duplicates by comparing each player against every other player in the array. This implementation causes gas costs to grow quadratically with the number of players.
+The `enterRaffle()` function contains a nested loop for duplicate player checking that has O(n to the square) time complexity. The function first adds all new players to the array and then checks for duplicates by comparing each player against every other player in the array. This implementation causes gas costs to grow quadratically with the number of players.
 
 Root cause in `PuppyRaffle.sol`:
 ```javascript
@@ -253,7 +384,7 @@ function enterRaffle(address[] memory newPlayers) public payable {
         players.push(newPlayers[i]);
     }
 
-    // Second nested loop - O(n²)
+    // Second nested loop - O(n to the square)
     for (uint256 i = 0; i < players.length - 1; i++) {
         for (uint256 j = i + 1; j < players.length; j++) {
             require(players[i] != players[j], "PuppyRaffle: Duplicate player");
@@ -344,7 +475,7 @@ contract PuppyRaffle {
    - Consider breaking large raffles into smaller ones
    - Add a maximum batch size for enterRaffle calls
 
-These changes would reduce the time complexity from O(n²) to O(n) and prevent potential DoS attacks.
+These changes would reduce the time complexity from O(n to the square) to O(n) and prevent potential DoS attacks.
 
 **Severity: Medium**
 - Impact: High - The contract can become completely unusable due to gas limits, effectively blocking all users from participating
@@ -623,13 +754,3 @@ function _isActivePlayer() internal view returns (bool) {
 
 **Recommended Mitigation:** Remove the unused `_isActivePlayer()` function. If similar functionality is needed, use the existing `getActivePlayerIndex()` function.
 
-
-# Template:
-### [S-#] TITLE (Root + Impact)
-**Description:**
-
-**Impact:**
-
-**Proof of Concept:**
-
-**Recommended mitigation:**

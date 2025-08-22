@@ -199,6 +199,7 @@ contract PuppyRaffle is ERC721, Ownable {
         uint256 feesToWithdraw = totalFees;
         totalFees = 0;
         // slither-disable-next-line arbitrary-send-eth
+        // written-report - are we missing events?
         (bool success,) = feeAddress.call{value: feesToWithdraw}("");
         require(success, "PuppyRaffle: Failed to withdraw fees");
     }
@@ -207,12 +208,11 @@ contract PuppyRaffle is ERC721, Ownable {
     /// @param newFeeAddress the new address to send fees to
     function changeFeeAddress(address newFeeAddress) external onlyOwner {
         feeAddress = newFeeAddress;
-        // followup are we missing events?
         emit FeeAddressChanged(newFeeAddress);
     }
 
     /// @notice this function will return true if the msg.sender is an active player
-    // @audit - this function is not used anywhere
+    // written-report - this function is not used anywhere
     function _isActivePlayer() internal view returns (bool) {
         for (uint256 i = 0; i < players.length; i++) {
             if (players[i] == msg.sender) {
